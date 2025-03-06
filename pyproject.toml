@@ -1,0 +1,10 @@
+[project]
+name = "chat-with-arduino"
+version = "0.1.0"
+description = "Control your Arduino microcontroller using LLMs"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.3.0",
+]
