@@ -596,12 +596,12 @@ async def compile_and_upload_arduino_program(program_code: str, program_name: st
             return (1, "Error: Program name cannot contain spaces.")
 
         # Create the directory for the program
-        program_dir = os.path.join(os.getcwd(), program_name)
+        program_dir = os.path.join(os.getcwd(), 'happy-little-programs', program_name)
         if not os.path.exists(program_dir):
             os.mkdir(program_dir)
 
         # Write the program code to the .ino file
-        program_file_path = os.path.join(program_dir, f"{program_name}.ino")
+        program_file_path = os.path.join('happy-little-programs', program_dir, f"{program_name}.ino")
         with open(program_file_path, 'w') as program_file:
             program_file.write(program_code)
 
