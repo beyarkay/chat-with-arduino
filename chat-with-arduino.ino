@@ -230,11 +230,12 @@ void handleNoTone() {
 }
 
 void handleDelay() {
-    // Read the delay duration (should be the second byte, high byte)
-    uint8_t durationHigh = Serial.read();
 
-    // Read the delay duration (should be the third byte, low byte)
-    uint8_t durationLow = Serial.read();
+    // Read the delay duration
+    uint8_t duration0 = Serial.read();
+    uint8_t duration1 = Serial.read();
+    uint8_t duration2 = Serial.read();
+    uint8_t duration3 = Serial.read();
 
     // Read the end of message byte
     uint8_t endByte = Serial.read();
@@ -246,7 +247,12 @@ void handleDelay() {
     }
 
     // Combine duration bytes into a full value
-    long duration = (durationHigh << 8) | durationLow;
+    long duration = (
+        (duration0 << 24)
+        | (duration1 << 16)
+        | (duration2 << 8)
+        | duration3
+    );
 
     // Perform the delay
     delay(duration);
