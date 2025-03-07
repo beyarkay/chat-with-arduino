@@ -2,6 +2,13 @@
 uint8_t START_OF_MESSAGE = 0xFE;
 uint8_t END_OF_MESSAGE = 0xFF;
 
+enum ErrorCode : uint8_t {
+    GENERIC = 0,
+    END_BYTE_INCORRECT = 1,
+    MODE_GREATER_THAN_FOUR = 2,
+    UNKNOWN_COMMAND = 3
+};
+
 enum TctlmIds : uint8_t {
     ERR = 0,
     ACK = 1,
@@ -17,17 +24,16 @@ enum TctlmIds : uint8_t {
 };
 
 
-void sendError() {
-    // Send start of message, ERR TctlmId, and end of message
+void sendTctlmId(TctlmIds tctlmId) {
     Serial.write(START_OF_MESSAGE);
-    Serial.write(TctlmIds::ERR);
+    Serial.write(tctlmId);
     Serial.write(END_OF_MESSAGE);
 }
 
-void sendTctlmId(TctlmIds tctlmId) {
-    // Send start of message, the provided TctlmId, and end of message
+void sendError(ErrorCode err) {
     Serial.write(START_OF_MESSAGE);
-    Serial.write(tctlmId);
+    Serial.write(TctlmIds::ERR);
+    Serial.write(err);
     Serial.write(END_OF_MESSAGE);
 }
 
@@ -37,7 +43,7 @@ void handleAck() {
 
     // Ensure the end byte is correct
     if (endByte != END_OF_MESSAGE) {
-        sendError();
+        sendError(ErrorCode::END_BYTE_INCORRECT);
         return;
     }
 
@@ -54,7 +60,7 @@ void handleDigitalRead() {
 
     // Ensure the end byte is correct
     if (endByte != END_OF_MESSAGE) {
-        sendError();
+        sendError(ErrorCode::END_BYTE_INCORRECT);
         return;
     }
 
@@ -80,7 +86,7 @@ void handleDigitalWrite() {
 
     // Ensure the end byte is correct
     if (endByte != END_OF_MESSAGE) {
-        sendError();
+        sendError(ErrorCode::END_BYTE_INCORRECT);
         return;
     }
 
@@ -88,7 +94,7 @@ void handleDigitalWrite() {
     digitalWrite(pin, state);
 
     // Send the response back indicating that the digitalWrite was executed
-    Serial.write(TctlmIds::DIGITAL_WRITE);
+    sendTctlmId(TctlmIds::DIGITAL_WRITE);
 }
 
 void handlePinMode() {
@@ -103,13 +109,13 @@ void handlePinMode() {
 
     // Ensure the end byte is correct
     if (endByte != END_OF_MESSAGE) {
-        sendError();
+        sendError(ErrorCode::END_BYTE_INCORRECT);
         return;
     }
 
     // Check if mode is valid
     if (mode > 4) {
-        sendError();
+        sendError(ErrorCode::MODE_GREATER_THAN_FOUR);
         return;
     }
 
@@ -129,7 +135,7 @@ void handleAnalogRead() {
 
     // Ensure the end byte is correct
     if (endByte != END_OF_MESSAGE) {
-        sendError();
+        sendError(ErrorCode::END_BYTE_INCORRECT);
         return;
     }
 
@@ -156,7 +162,7 @@ void handleAnalogWrite() {
 
     // Ensure the end byte is correct
     if (endByte != END_OF_MESSAGE) {
-        sendError();
+        sendError(ErrorCode::END_BYTE_INCORRECT);
         return;
     }
 
@@ -188,7 +194,7 @@ void handleTone() {
 
     // Ensure the end byte is correct
     if (endByte != END_OF_MESSAGE) {
-        sendError();
+        sendError(ErrorCode::END_BYTE_INCORRECT);
         return;
     }
 
@@ -212,7 +218,7 @@ void handleNoTone() {
 
     // Ensure the end byte is correct
     if (endByte != END_OF_MESSAGE) {
-        sendError();
+        sendError(ErrorCode::END_BYTE_INCORRECT);
         return;
     }
 
@@ -235,7 +241,7 @@ void handleDelay() {
 
     // Ensure the end byte is correct
     if (endByte != END_OF_MESSAGE) {
-        sendError();
+        sendError(ErrorCode::END_BYTE_INCORRECT);
         return;
     }
 
@@ -255,7 +261,7 @@ void handleMillis() {
 
     // Ensure the end byte is correct
     if (endByte != END_OF_MESSAGE) {
-        sendError();
+        sendError(ErrorCode::END_BYTE_INCORRECT);
         return;
     }
 
@@ -265,7 +271,9 @@ void handleMillis() {
     // Send the response back with the millis value
     Serial.write(START_OF_MESSAGE);
     Serial.write(TctlmIds::MILLIS);
-    Serial.write((uint8_t)(millisValue >> 8)); // Send high byte
+    Serial.write((uint8_t)(millisValue >> 24)); // Send high byte
+    Serial.write((uint8_t)((millisValue >> 16) & 0xFF)); // Send low byte
+    Serial.write((uint8_t)((millisValue >> 8) & 0xFF)); // Send low byte
     Serial.write((uint8_t)(millisValue & 0xFF)); // Send low byte
     Serial.write(END_OF_MESSAGE);
 }
@@ -340,7 +348,7 @@ void loop() {
         default:
             // Unknown command, handle accordingly
             // Optionally send an error response back or do nothing
-            sendError();
+            sendError(ErrorCode::UNKNOWN_COMMAND);
             break;
     }
 }

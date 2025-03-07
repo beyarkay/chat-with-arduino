@@ -1,9 +1,13 @@
-from typing import Any, Union
-import httpx
+from enum import Enum
 from mcp.server.fastmcp import FastMCP
+from typing import Any, Union, Tuple
+import httpx
+import json
+import mcp
+import os
 import serial
 import serial.tools.list_ports
-from enum import Enum
+import subprocess
 
 # Initialize FastMCP server
 mcp = FastMCP("chat-with-arduino")
@@ -49,10 +53,10 @@ async def ack() -> Union[bool, str]:
         if SERIAL_PORT is None:
             return SERIAL_PORT_NC_MESSAGE
 
-        SERIAL_PORT.write([START_OF_MESSAGE, TctlmIds.ACK, END_OF_MESSAGE])
-        reply = SERIAL_PORT.read_until(expected=TctlmIds.END)
+        SERIAL_PORT.write([START_OF_MESSAGE, TctlmIds.ACK.value, END_OF_MESSAGE])
+        reply = list(SERIAL_PORT.read_until(expected=[END_OF_MESSAGE]))
 
-        return reply == [START_OF_MESSAGE, TctlmIds.ACK, END_OF_MESSAGE]
+        return list(reply) == [START_OF_MESSAGE, TctlmIds.ACK.value, END_OF_MESSAGE]
 
     except Exception as e:
         return str(e)
@@ -75,12 +79,13 @@ async def digital_read(pin: int) -> Union[bool, str]:
         if SERIAL_PORT is None:
             return SERIAL_PORT_NC_MESSAGE
 
-        SERIAL_PORT.write([START_OF_MESSAGE, TctlmIds.DIGITAL_READ, pin, END_OF_MESSAGE])
-        reply = SERIAL_PORT.read_until(expected=END_OF_MESSAGE)
+        SERIAL_PORT.write([START_OF_MESSAGE, TctlmIds.DIGITAL_READ.value, pin, END_OF_MESSAGE])
+        reply = list(SERIAL_PORT.read_until(expected=[END_OF_MESSAGE]))
 
-        assert len(reply) == 4, "Expected reply to be 4 bytes, but was {len(reply)}"
+        assert len(reply) == 4, "Expected reply to be 4 bytes, but was {len(reply)}: {reply}"
+        assert reply[1] != TctlmIds.ERR.value, f"Received an error code: {reply[2]}"
         assert reply[0] == START_OF_MESSAGE, "Expected reply[0] to be start of message {START_OF_MESSAGE}, but was {reply[0]}"
-        assert reply[1] == TctlmIds.DIGITAL_READ, "Expected reply[1] to be TctlmIds.DIGITAL_READ {TctlmIds.DIGITAL_READ}, but was {reply[1]}"
+        assert reply[1] == TctlmIds.DIGITAL_READ.value, "Expected reply[1] to be TctlmIds.DIGITAL_READ {TctlmIds.DIGITAL_READ.value}, but was {reply[1]}"
         assert reply[3] == END_OF_MESSAGE, "Expected reply[3] to be end of message {END_OF_MESSAGE}, but was {reply[3]}"
         assert reply[2] in (0, 1), f"Expected reply[2] to be 0 or 1, but was {reply[2]}"
 
@@ -109,12 +114,13 @@ async def digital_write(pin: int, state: int) -> Union[None, str]:
         if SERIAL_PORT is None:
             return SERIAL_PORT_NC_MESSAGE
 
-        SERIAL_PORT.write([START_OF_MESSAGE, TctlmIds.DIGITAL_WRITE, pin, state, END_OF_MESSAGE])
-        reply = SERIAL_PORT.read_until(expected=END_OF_MESSAGE)
+        SERIAL_PORT.write([START_OF_MESSAGE, TctlmIds.DIGITAL_WRITE.value, pin, state, END_OF_MESSAGE])
+        reply = list(SERIAL_PORT.read_until(expected=[END_OF_MESSAGE]))
 
-        assert len(reply) == 3, f"Expected reply to be 3 bytes, but was {len(reply)}"
+        assert len(reply) == 3, f"Expected reply to be 3 bytes, but was {len(reply)}: {reply}"
+        assert reply[1] != TctlmIds.ERR.value, f"Received an error code: {reply[2]}"
         assert reply[0] == START_OF_MESSAGE, f"Expected reply[0] to be start of message {START_OF_MESSAGE}, but was {reply[0]}"
-        assert reply[1] == TctlmIds.DIGITAL_WRITE, f"Expected reply[1] to be TctlmIds.DIGITAL_WRITE {TctlmIds.DIGITAL_WRITE}, but was {reply[1]}"
+        assert reply[1] == TctlmIds.DIGITAL_WRITE.value, f"Expected reply[1] to be TctlmIds.DIGITAL_WRITE {TctlmIds.DIGITAL_WRITE.value}, but was {reply[1]}"
         assert reply[2] == END_OF_MESSAGE, f"Expected reply[2] to be end of message {END_OF_MESSAGE}, but was {reply[2]}"
 
         return None  # Success
@@ -155,12 +161,13 @@ async def pin_mode(pin: int, mode: str) -> Union[None, str]:
         if SERIAL_PORT is None:
             return SERIAL_PORT_NC_MESSAGE
 
-        SERIAL_PORT.write([START_OF_MESSAGE, TctlmIds.PIN_MODE, pin, mode_value, END_OF_MESSAGE])
-        reply = SERIAL_PORT.read_until(expected=END_OF_MESSAGE)
+        SERIAL_PORT.write([START_OF_MESSAGE, TctlmIds.PIN_MODE.value, pin, mode_value, END_OF_MESSAGE])
+        reply = list(SERIAL_PORT.read_until(expected=[END_OF_MESSAGE]))
 
-        assert len(reply) == 3, f"Expected reply to be 3 bytes, but was {len(reply)}"
+        assert len(reply) == 3, f"Expected reply to be 3 bytes, but was {len(reply)}: {reply}"
+        assert reply[1] != TctlmIds.ERR.value, f"Received an error code: {reply[2]}"
         assert reply[0] == START_OF_MESSAGE, f"Expected reply[0] to be start of message {START_OF_MESSAGE}, but was {reply[0]}"
-        assert reply[1] == TctlmIds.PIN_MODE, f"Expected reply[1] to be TctlmIds.PIN_MODE {TctlmIds.PIN_MODE}, but was {reply[1]}"
+        assert reply[1] == TctlmIds.PIN_MODE.value, f"Expected reply[1] to be TctlmIds.PIN_MODE {TctlmIds.PIN_MODE.value}, but was {reply[1]}"
         assert reply[2] == END_OF_MESSAGE, f"Expected reply[2] to be end of message {END_OF_MESSAGE}, but was {reply[2]}"
 
         return None  # Success
@@ -186,15 +193,16 @@ async def analog_read(pin: int) -> Union[int, str]:
         if SERIAL_PORT is None:
             return SERIAL_PORT_NC_MESSAGE
 
-        SERIAL_PORT.write([START_OF_MESSAGE, TctlmIds.ANALOG_READ, pin, END_OF_MESSAGE])
-        reply = SERIAL_PORT.read_until(expected=END_OF_MESSAGE)
+        SERIAL_PORT.write([START_OF_MESSAGE, TctlmIds.ANALOG_READ.value, pin, END_OF_MESSAGE])
+        reply = list(SERIAL_PORT.read_until(expected=[END_OF_MESSAGE]))
 
-        assert len(reply) == 4, f"Expected reply to be 4 bytes, but was {len(reply)}"
+        assert len(reply) == 5, f"Expected reply to be 5 bytes, but was {len(reply)}: {reply}"
+        assert reply[1] != TctlmIds.ERR.value, f"Received an error code: {reply[2]}"
         assert reply[0] == START_OF_MESSAGE, f"Expected reply[0] to be start of message {START_OF_MESSAGE}, but was {reply[0]}"
-        assert reply[1] == TctlmIds.ANALOG_READ, f"Expected reply[1] to be TctlmIds.ANALOG_READ {TctlmIds.ANALOG_READ}, but was {reply[1]}"
+        assert reply[1] == TctlmIds.ANALOG_READ.value, f"Expected reply[1] to be TctlmIds.ANALOG_READ {TctlmIds.ANALOG_READ.value}, but was {reply[1]}"
         assert reply[3] == END_OF_MESSAGE, f"Expected reply[3] to be end of message {END_OF_MESSAGE}, but was {reply[3]}"
 
-        value = reply[2]
+        value = (reply[2] << 8) & reply[3]
         assert 0 <= value <= 1023, f"Analog read value must be between 0 and 1023, but was {value}"
 
         return value  # The analog reading
@@ -222,12 +230,13 @@ async def analog_write(pin: int, value: int) -> Union[None, str]:
         if SERIAL_PORT is None:
             return SERIAL_PORT_NC_MESSAGE
 
-        SERIAL_PORT.write([START_OF_MESSAGE, TctlmIds.ANALOG_WRITE, pin, value, END_OF_MESSAGE])
-        reply = SERIAL_PORT.read_until(expected=END_OF_MESSAGE)
+        SERIAL_PORT.write([START_OF_MESSAGE, TctlmIds.ANALOG_WRITE.value, pin, value, END_OF_MESSAGE])
+        reply = list(SERIAL_PORT.read_until(expected=[END_OF_MESSAGE]))
 
-        assert len(reply) == 3, f"Expected reply to be 3 bytes, but was {len(reply)}"
+        assert len(reply) == 3, f"Expected reply to be 3 bytes, but was {len(reply)}: {reply}"
+        assert reply[1] != TctlmIds.ERR.value, f"Received an error code: {reply[2]}"
         assert reply[0] == START_OF_MESSAGE, f"Expected reply[0] to be start of message {START_OF_MESSAGE}, but was {reply[0]}"
-        assert reply[1] == TctlmIds.ANALOG_WRITE, f"Expected reply[1] to be TctlmIds.ANALOG_WRITE {TctlmIds.ANALOG_WRITE}, but was {reply[1]}"
+        assert reply[1] == TctlmIds.ANALOG_WRITE.value, f"Expected reply[1] to be TctlmIds.ANALOG_WRITE {TctlmIds.ANALOG_WRITE.value}, but was {reply[1]}"
         assert reply[2] == END_OF_MESSAGE, f"Expected reply[2] to be end of message {END_OF_MESSAGE}, but was {reply[2]}"
 
         return None  # Success
@@ -260,7 +269,7 @@ async def tone(pin: int, frequency: int, duration: int) -> Union[None, str]:
         # Send tone command to Arduino
         SERIAL_PORT.write([
             START_OF_MESSAGE,
-            TctlmIds.TONE,
+            TctlmIds.TONE.value,
             pin,
             frequency >> 8,
             frequency & 0xFF,
@@ -270,11 +279,12 @@ async def tone(pin: int, frequency: int, duration: int) -> Union[None, str]:
             duration & 0xFF,
             END_OF_MESSAGE
         ])
-        reply = SERIAL_PORT.read_until(expected=END_OF_MESSAGE)
+        reply = list(SERIAL_PORT.read_until(expected=[END_OF_MESSAGE]))
 
-        assert len(reply) == 3, f"Expected reply to be 3 bytes, but was {len(reply)}"
+        assert len(reply) == 3, f"Expected reply to be 3 bytes, but was {len(reply)}: {reply}"
+        assert reply[1] != TctlmIds.ERR.value, f"Received an error code: {reply[2]}"
         assert reply[0] == START_OF_MESSAGE, f"Expected reply[0] to be start of message {START_OF_MESSAGE}, but was {reply[0]}"
-        assert reply[1] == TctlmIds.TONE, f"Expected reply[1] to be TctlmIds.TONE {TctlmIds.TONE}, but was {reply[1]}"
+        assert reply[1] == TctlmIds.TONE.value, f"Expected reply[1] to be TctlmIds.TONE {TctlmIds.TONE.value}, but was {reply[1]}"
         assert reply[2] == END_OF_MESSAGE, f"Expected reply[2] to be end of message {END_OF_MESSAGE}, but was {reply[2]}"
 
         return None  # Success
@@ -301,12 +311,13 @@ async def no_tone(pin: int) -> Union[None, str]:
             return SERIAL_PORT_NC_MESSAGE
 
         # Send noTone command to Arduino
-        SERIAL_PORT.write([START_OF_MESSAGE, TctlmIds.NO_TONE, pin, END_OF_MESSAGE])
-        reply = SERIAL_PORT.read_until(expected=END_OF_MESSAGE)
+        SERIAL_PORT.write([START_OF_MESSAGE, TctlmIds.NO_TONE.value, pin, END_OF_MESSAGE])
+        reply = list(SERIAL_PORT.read_until(expected=[END_OF_MESSAGE]))
 
-        assert len(reply) == 3, f"Expected reply to be 3 bytes, but was {len(reply)}"
+        assert len(reply) == 3, f"Expected reply to be 3 bytes, but was {len(reply)}: {reply}"
+        assert reply[1] != TctlmIds.ERR.value, f"Received an error code: {reply[2]}"
         assert reply[0] == START_OF_MESSAGE, f"Expected reply[0] to be start of message {START_OF_MESSAGE}, but was {reply[0]}"
-        assert reply[1] == TctlmIds.NO_TONE, f"Expected reply[1] to be TctlmIds.NO_TONE {TctlmIds.NO_TONE}, but was {reply[1]}"
+        assert reply[1] == TctlmIds.NO_TONE.value, f"Expected reply[1] to be TctlmIds.NO_TONE {TctlmIds.NO_TONE.value}, but was {reply[1]}"
         assert reply[2] == END_OF_MESSAGE, f"Expected reply[2] to be end of message {END_OF_MESSAGE}, but was {reply[2]}"
 
         return None  # Success
@@ -335,18 +346,19 @@ async def delay(milliseconds: int) -> Union[None, str]:
         # Send delay command to Arduino
         SERIAL_PORT.write([
             START_OF_MESSAGE,
-            TctlmIds.DELAY,
+            TctlmIds.DELAY.value,
             milliseconds >> 24,
             (milliseconds >> 16) & 0xFF,
             (milliseconds >> 8) & 0xFF,
             milliseconds & 0xFF,
             END_OF_MESSAGE
         ])
-        reply = SERIAL_PORT.read_until(expected=END_OF_MESSAGE)
+        reply = list(SERIAL_PORT.read_until(expected=[END_OF_MESSAGE]))
 
-        assert len(reply) == 3, f"Expected reply to be 3 bytes, but was {len(reply)}"
+        assert len(reply) == 3, f"Expected reply to be 3 bytes, but was {len(reply)}: {reply}"
+        assert reply[1] != TctlmIds.ERR.value, f"Received an error code: {reply[2]}"
         assert reply[0] == START_OF_MESSAGE, f"Expected reply[0] to be start of message {START_OF_MESSAGE}, but was {reply[0]}"
-        assert reply[1] == TctlmIds.DELAY, f"Expected reply[1] to be TctlmIds.DELAY {TctlmIds.DELAY}, but was {reply[1]}"
+        assert reply[1] == TctlmIds.DELAY.value, f"Expected reply[1] to be TctlmIds.DELAY {TctlmIds.DELAY.value}, but was {reply[1]}"
         assert reply[2] == END_OF_MESSAGE, f"Expected reply[2] to be end of message {END_OF_MESSAGE}, but was {reply[2]}"
 
         return None  # Success
@@ -369,13 +381,14 @@ async def millis() -> Union[int, str]:
             return SERIAL_PORT_NC_MESSAGE
 
         # Send millis command to Arduino
-        SERIAL_PORT.write([START_OF_MESSAGE, TctlmIds.MILLIS, END_OF_MESSAGE])
-        reply = SERIAL_PORT.read_until(expected=END_OF_MESSAGE)
+        SERIAL_PORT.write([START_OF_MESSAGE, TctlmIds.MILLIS.value, END_OF_MESSAGE])
+        reply = list(SERIAL_PORT.read_until(expected=[END_OF_MESSAGE]))
 
-        assert len(reply) == 5, f"Expected reply to be 5 bytes, but was {len(reply)}"
+        assert len(reply) == 7, f"Expected reply to be 7 bytes, but was {len(reply)}: {reply}"
+        assert reply[1] != TctlmIds.ERR.value, f"Received an error code: {reply[2]}"
         assert reply[0] == START_OF_MESSAGE, f"Expected reply[0] to be start of message {START_OF_MESSAGE}, but was {reply[0]}"
-        assert reply[1] == TctlmIds.MILLIS, f"Expected reply[1] to be TctlmIds.MILLIS {TctlmIds.MILLIS}, but was {reply[1]}"
-        assert reply[4] == END_OF_MESSAGE, f"Expected reply[4] to be end of message {END_OF_MESSAGE}, but was {reply[4]}"
+        assert reply[1] == TctlmIds.MILLIS.value, f"Expected reply[1] to be TctlmIds.MILLIS {TctlmIds.MILLIS.value}, but was {reply[1]}"
+        assert reply[6] == END_OF_MESSAGE, f"Expected reply[4] to be end of message {END_OF_MESSAGE}, but was {reply[4]}"
 
         # Convert the 4-byte reply to an integer (milliseconds)
         millis_value = (reply[2] << 24) | (reply[3] << 16) | (reply[4] << 8) | reply[5]
@@ -385,11 +398,65 @@ async def millis() -> Union[int, str]:
     except Exception as e:
         return str(e)
 
+@mcp.tool()
+async def check_arduino_cli() -> Tuple[bool, str]:
+    """Checks if the arduino-cli command-line tool is available on the system.
+
+    Returns: A (bool, str) tuple. True if there is an arduino cli available.
+    False otherwise. The string is either the stdout of `arduino-cli version`,
+    or it is the stderr/exception that occured."""
+    try:
+        # Run arduino-cli --version to check if the tool is installed
+        result = subprocess.run(['arduino-cli', 'version'], capture_output=True, text=True, check=True)
+        if result.returncode == 0:
+            return (True, result.stdout)
+        else:
+            return (False, f"returncode is {result.returncode}, stderr: {result.stderr}")
+    except Exception as e:
+        return (False, str(e))
+
+@mcp.tool()
+async def list_arduino_boards() -> Union[list, str]:
+    """Gets and parses the list of connected Arduino boards in JSON format
+    using `arduino-cli board list --json`.
+
+    Returns either a list of dictionaries, or a string with an error message
+    the dictionaries have the format:
+
+    { "port": str, "board_name": str, "fqbn": str }
+    """
+    try:
+        # Run arduino-cli board list --json to get the list of boards in JSON format
+        result = subprocess.run(['arduino-cli', 'board', 'list', '--json'], capture_output=True, text=True, check=True)
+
+        if result.returncode != 0:
+            return f"Return code is {result.returncode}, stderr: {result.stderr}"
+
+        # Parse the JSON output
+        data = json.loads(result.stdout)
+
+        boards = []
+        for entry in data.get("detected_ports", []):
+            # Check if the entry has matching_boards and parse accordingly
+            if "matching_boards" in entry:
+                for board in entry["matching_boards"]:
+                    boards.append({
+                        "port": entry["port"]["address"],
+                        "board_name": board["name"],
+                        "fqbn": board["fqbn"],
+                    })
+
+        return boards
+
+    except Exception as e:
+        return str(e)
+
 
 @mcp.tool()
 async def list_devices() -> list[str]:
     """List the available serial ports/COM ports. One of these might be an
-    Arduino that can be connected to. Empty if no serial ports are found
+    Arduino that can be connected to. Empty if no serial ports are found. See
+    also `list_arduino_boards` (iff the arduino-cli is available)
 
     Returns: A list of (port_name, description) tuples
     """
@@ -468,18 +535,49 @@ async def connect_to_arduino(
         print(f"Failed to connect to {port}: {e}")
         return False
 
-
 @mcp.tool()
-async def is_connected() -> bool:
-    """Check if you're connected to an Arduino
+async def compile_and_upload_arduino_program(program_code: str, program_name: str, fqbn: str, port: str) -> tuple:
+    """Compiles and uploads an Arduino program to a given board using arduino-cli.
 
-    Returns: True if the MCP server can communicate with the Arduino, False
-    otherwise
+    Arguments:
+        program_code (str): The complete Arduino program code.
+        program_name (str): The name of the program (without spaces).
+        fqbn (str): The Fully Qualified Board Name (FQBN) of the Arduino board.
+        port (str): The port to which the Arduino board is connected.
+
+    Returns:
+        tuple: A tuple containing the return code and either the stderr or stdout.
     """
-    global SERIAL_PORT
-    SERIAL_PORT.write('ping'.encode())
-    response = SERIAL_PORT.readline().decode().strip()
-    return response == 'pong'
+    try:
+        # Check if program_name contains spaces
+        if " " in program_name:
+            return (1, "Error: Program name cannot contain spaces.")
+
+        # Create the directory for the program
+        program_dir = os.path.join(os.getcwd(), program_name)
+        if not os.path.exists(program_dir):
+            os.mkdir(program_dir)
+
+        # Write the program code to the .ino file
+        program_file_path = os.path.join(program_dir, f"{program_name}.ino")
+        with open(program_file_path, 'w') as program_file:
+            program_file.write(program_code)
+
+        # Run the compile and upload command
+        result = subprocess.run(
+            ['arduino-cli', 'compile', '--fqbn', fqbn, '--port', port, '--upload', program_dir],
+            capture_output=True, text=True
+        )
+
+        # Return the result
+        if result.returncode == 0:
+            return (result.returncode, result.stdout)
+        else:
+            return (result.returncode, result.stderr + '\n\n---\n\n' + result.stdout)
+
+    except Exception as e:
+        return (1, str(e))
+
 
 if __name__ == "__main__":
     mcp.run(transport='stdio')
