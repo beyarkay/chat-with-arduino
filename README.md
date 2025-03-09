@@ -11,7 +11,7 @@ Use Claude or other LLMs to control your Arduino microcontroller!
 - Control your Arduino directly through Claude
 - no code writing or uploading required. Claude handles it all
 - You can move motors, turn on LEDs, read sensors directly via Claude
-- Claude can also write it's own code and upload it to the microcontroller.
+- Claude can write it's own code and upload it to the microcontroller
 
 ## Installation
 
