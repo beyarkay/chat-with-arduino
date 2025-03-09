@@ -31,11 +31,8 @@ class TctlmIds(Enum):
     PIN_MODE = 4
     ANALOG_READ = 5
     ANALOG_WRITE = 6
-    TONE = 7
-    NO_TONE = 8
-    DELAY = 9
-    MILLIS = 10
-    AI = 11
+    DELAY = 7
+    MILLIS = 8
 
 @mcp.tool()
 async def ack() -> Union[bool, str]:
@@ -243,88 +240,6 @@ async def analog_write(pin: int, value: int) -> Union[None, str]:
 
     except Exception as e:
         return str(e)
-
-
-@mcp.tool()
-async def tone(pin: int, frequency: int, duration: int) -> Union[None, str]:
-    """Generates a square wave on the specified pin with a 50% duty cycle.
-
-    Arguments:
-        pin (int): The pin number to generate the tone on (0-255).
-        frequency (int): The frequency of the tone (in Hz, valid range: 31-65535).
-        duration (int): The duration for the tone (in milliseconds).
-
-    Returns:
-        None if successful, or a stringified error message if something went wrong.
-    """
-    global SERIAL_PORT
-    try:
-        assert 0 <= pin <= 255, f"Pin must be in range 0-255, but was {pin}"
-        assert 31 <= frequency <= 65535, f"Frequency must be in range 31-65535, but was {frequency}"
-        assert 0 <= duration <= 4294967295, f"Duration must be a valid unsigned long value, but was {duration}"
-
-        if SERIAL_PORT is None:
-            return SERIAL_PORT_NC_MESSAGE
-
-        # Send tone command to Arduino
-        SERIAL_PORT.write([
-            START_OF_MESSAGE,
-            TctlmIds.TONE.value,
-            pin,
-            frequency >> 8,
-            frequency & 0xFF,
-            duration >> 24,
-            (duration >> 16) & 0xFF,
-            (duration >> 8) & 0xFF,
-            duration & 0xFF,
-            END_OF_MESSAGE
-        ])
-        reply = list(SERIAL_PORT.read_until(expected=[END_OF_MESSAGE]))
-
-        assert not (len(reply) == 4 and reply[1] == TctlmIds.ERR.value), f"Received an error code: {reply[2]}"
-        assert len(reply) == 3, f"Expected reply to be 3 bytes, but was {len(reply)}: {reply}"
-        assert reply[0] == START_OF_MESSAGE, f"Expected reply[0] to be start of message {START_OF_MESSAGE}, but was {reply[0]}"
-        assert reply[1] == TctlmIds.TONE.value, f"Expected reply[1] to be TctlmIds.TONE {TctlmIds.TONE.value}, but was {reply[1]}"
-        assert reply[2] == END_OF_MESSAGE, f"Expected reply[2] to be end of message {END_OF_MESSAGE}, but was {reply[2]}"
-
-        return None  # Success
-
-    except Exception as e:
-        return str(e)
-
-
-@mcp.tool()
-async def no_tone(pin: int) -> Union[None, str]:
-    """Stops generation of the square wave on the specified pin.
-
-    Arguments:
-        pin (int): The pin number to stop the tone on (0-255).
-
-    Returns:
-        None if successful, or a stringified error message if something went wrong.
-    """
-    global SERIAL_PORT
-    try:
-        assert 0 <= pin <= 255, f"Pin must be in range 0-255, but was {pin}"
-
-        if SERIAL_PORT is None:
-            return SERIAL_PORT_NC_MESSAGE
-
-        # Send noTone command to Arduino
-        SERIAL_PORT.write([START_OF_MESSAGE, TctlmIds.NO_TONE.value, pin, END_OF_MESSAGE])
-        reply = list(SERIAL_PORT.read_until(expected=[END_OF_MESSAGE]))
-
-        assert not (len(reply) == 4 and reply[1] == TctlmIds.ERR.value), f"Received an error code: {reply[2]}"
-        assert len(reply) == 3, f"Expected reply to be 3 bytes, but was {len(reply)}: {reply}"
-        assert reply[0] == START_OF_MESSAGE, f"Expected reply[0] to be start of message {START_OF_MESSAGE}, but was {reply[0]}"
-        assert reply[1] == TctlmIds.NO_TONE.value, f"Expected reply[1] to be TctlmIds.NO_TONE {TctlmIds.NO_TONE.value}, but was {reply[1]}"
-        assert reply[2] == END_OF_MESSAGE, f"Expected reply[2] to be end of message {END_OF_MESSAGE}, but was {reply[2]}"
-
-        return None  # Success
-
-    except Exception as e:
-        return str(e)
-
 
 @mcp.tool()
 async def delay(milliseconds: int) -> Union[None, str]:

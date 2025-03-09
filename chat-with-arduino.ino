@@ -17,10 +17,8 @@ enum TctlmIds : uint8_t {
     PIN_MODE = 4,
     ANALOG_READ = 5,
     ANALOG_WRITE = 6,
-    TONE = 7,
-    NO_TONE = 8,
-    DELAY = 9,
-    MILLIS = 10,
+    DELAY = 7,
+    MILLIS = 8,
 };
 
 
@@ -173,62 +171,6 @@ void handleAnalogWrite() {
     sendTctlmId(TctlmIds::ANALOG_WRITE);
 }
 
-void handleTone() {
-    // Read the pin number (should be the second byte)
-    uint8_t pin = Serial.read();
-
-    // Read the frequency (should be the third byte, high byte)
-    uint8_t freqHigh = Serial.read();
-
-    // Read the frequency (should be the fourth byte, low byte)
-    uint8_t freqLow = Serial.read();
-
-    // Read the duration (should be the fifth byte, high byte)
-    uint8_t durationHigh = Serial.read();
-
-    // Read the duration (should be the sixth byte, low byte)
-    uint8_t durationLow = Serial.read();
-
-    // Read the end of message byte
-    uint8_t endByte = Serial.read();
-
-    // Ensure the end byte is correct
-    if (endByte != END_OF_MESSAGE) {
-        sendError(ErrorCode::END_BYTE_INCORRECT);
-        return;
-    }
-
-    // Combine frequency and duration bytes into full values
-    long frequency = (freqHigh << 8) | freqLow;
-    long duration = (durationHigh << 8) | durationLow;
-
-    // Generate tone on the specified pin
-    tone(pin, frequency, duration);
-
-    // Send the response back indicating the tone was set
-    sendTctlmId(TctlmIds::TONE);
-}
-
-void handleNoTone() {
-    // Read the pin number (should be the second byte)
-    uint8_t pin = Serial.read();
-
-    // Read the end of message byte
-    uint8_t endByte = Serial.read();
-
-    // Ensure the end byte is correct
-    if (endByte != END_OF_MESSAGE) {
-        sendError(ErrorCode::END_BYTE_INCORRECT);
-        return;
-    }
-
-    // Stop tone on the specified pin
-    noTone(pin);
-
-    // Send the response back indicating the tone was stopped
-    sendTctlmId(TctlmIds::NO_TONE);
-}
-
 void handleDelay() {
 
     // Read the delay duration
@@ -333,14 +275,6 @@ void loop() {
 
         case TctlmIds::ANALOG_WRITE:
             handleAnalogWrite();
-            break;
-
-        case TctlmIds::TONE:
-            handleTone();
-            break;
-
-        case TctlmIds::NO_TONE:
-            handleNoTone();
             break;
 
         case TctlmIds::DELAY:
