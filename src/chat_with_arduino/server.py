@@ -10,7 +10,8 @@ import serial.tools.list_ports
 import subprocess
 
 # Initialize FastMCP server
-mcp = FastMCP("chat-with-arduino")
+my_mcp = FastMCP("chat-with-arduino")
+
 
 SERIAL_PORT = None
 
@@ -34,7 +35,7 @@ class TctlmIds(Enum):
     DELAY = 7
     MILLIS = 8
 
-@mcp.tool()
+@my_mcp.tool()
 async def ack() -> Union[bool, str]:
     """Request an acknowledgement from the arduino. Useful for checking that
     it's got power and has the Chat With Arduino firmware loaded.
@@ -59,7 +60,7 @@ async def ack() -> Union[bool, str]:
         return str(e)
 
 
-@mcp.tool()
+@my_mcp.tool()
 async def digital_read(pin: int) -> Union[bool, str]:
     """Reads the state of a digital pin.
 
@@ -92,7 +93,7 @@ async def digital_read(pin: int) -> Union[bool, str]:
         return str(e)
 
 
-@mcp.tool()
+@my_mcp.tool()
 async def digital_write(pin: int, state: int) -> Union[None, str]:
     """Writes a state to a digital pin.
 
@@ -126,7 +127,7 @@ async def digital_write(pin: int, state: int) -> Union[None, str]:
         return str(e)
 
 
-@mcp.tool()
+@my_mcp.tool()
 async def pin_mode(pin: int, mode: str) -> Union[None, str]:
     """Defines the mode of a pin. This can only be set once before the Arduino
     needs to be reset and should be set before using the pin.
@@ -173,7 +174,7 @@ async def pin_mode(pin: int, mode: str) -> Union[None, str]:
         return str(e)
 
 
-@mcp.tool()
+@my_mcp.tool()
 async def analog_read(pin: int) -> Union[int, str]:
     """Reads the value of an analog pin in 10-bit resolution (0-1023).
 
@@ -208,7 +209,7 @@ async def analog_read(pin: int) -> Union[int, str]:
         return str(e)
 
 
-@mcp.tool()
+@my_mcp.tool()
 async def analog_write(pin: int, value: int) -> Union[None, str]:
     """Writes a value to a PWM-supported pin in 8-bit resolution (0-255).
 
@@ -241,7 +242,7 @@ async def analog_write(pin: int, value: int) -> Union[None, str]:
     except Exception as e:
         return str(e)
 
-@mcp.tool()
+@my_mcp.tool()
 async def delay(milliseconds: int) -> Union[None, str]:
     """Freezes program execution for the specified number of milliseconds.
 
@@ -294,7 +295,7 @@ async def delay(milliseconds: int) -> Union[None, str]:
         return str(e)
 
 
-@mcp.tool()
+@my_mcp.tool()
 async def millis() -> Union[int, str]:
     """Returns the number of milliseconds since the program started.
 
@@ -325,7 +326,7 @@ async def millis() -> Union[int, str]:
     except Exception as e:
         return str(e)
 
-@mcp.tool()
+@my_mcp.tool()
 async def check_arduino_cli() -> Tuple[bool, str]:
     """Checks if the arduino-cli command-line tool is available on the system.
 
@@ -342,7 +343,7 @@ async def check_arduino_cli() -> Tuple[bool, str]:
     except Exception as e:
         return (False, str(e))
 
-@mcp.tool()
+@my_mcp.tool()
 async def list_arduino_boards() -> Union[list, str]:
     """Gets and parses the list of connected Arduino boards in JSON format
     using `arduino-cli board list --json`.
@@ -379,7 +380,7 @@ async def list_arduino_boards() -> Union[list, str]:
         return str(e)
 
 
-@mcp.tool()
+@my_mcp.tool()
 async def list_devices() -> list[str]:
     """List the available serial ports/COM ports. One of these might be an
     Arduino that can be connected to. Empty if no serial ports are found. See
@@ -397,7 +398,7 @@ async def list_devices() -> list[str]:
     return [(port.device, port.description) for port in ports]
 
 
-@mcp.tool()
+@my_mcp.tool()
 async def disconnect_from_arduino() -> bool:
     global SERIAL_PORT
     try:
@@ -409,7 +410,7 @@ async def disconnect_from_arduino() -> bool:
     return True
 
 
-@mcp.tool()
+@my_mcp.tool()
 async def connect_to_arduino(
     port,
     baud_rate=9600,
@@ -462,7 +463,7 @@ async def connect_to_arduino(
         print(f"Failed to connect to {port}: {e}")
         return False
 
-@mcp.tool()
+@my_mcp.tool()
 async def upload_chat_with_arduino_firmware(fqbn: str, port: str) -> tuple:
     """Re-upload the Chat With Arduino firmware to the board.
 
@@ -492,7 +493,7 @@ async def upload_chat_with_arduino_firmware(fqbn: str, port: str) -> tuple:
         return (1, str(e))
 
 
-@mcp.tool()
+@my_mcp.tool()
 async def compile_and_upload_arduino_program(program_code: str, program_name: str, fqbn: str, port: str) -> tuple:
     """Compiles and uploads an Arduino program to a given board using arduino-cli.
 
@@ -535,6 +536,8 @@ async def compile_and_upload_arduino_program(program_code: str, program_name: st
         return (1, str(e))
 
 
-if __name__ == "__main__":
-    mcp.run(transport='stdio')
+def main():
+    my_mcp.run(transport='stdio')
 
+if __name__ == "__main__":
+    main()
