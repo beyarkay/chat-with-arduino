@@ -197,7 +197,7 @@ async def analog_read(pin: int) -> Union[int, str]:
         assert len(reply) == 5, f"Expected reply to be 5 bytes, but was {len(reply)}: {reply}"
         assert reply[0] == START_OF_MESSAGE, f"Expected reply[0] to be start of message {START_OF_MESSAGE}, but was {reply[0]}"
         assert reply[1] == TctlmIds.ANALOG_READ.value, f"Expected reply[1] to be TctlmIds.ANALOG_READ {TctlmIds.ANALOG_READ.value}, but was {reply[1]}"
-        assert reply[3] == END_OF_MESSAGE, f"Expected reply[3] to be end of message {END_OF_MESSAGE}, but was {reply[3]}"
+        assert reply[4] == END_OF_MESSAGE, f"Expected reply[4] to be end of message {END_OF_MESSAGE}, but was {reply[4]}"
 
         value = (reply[2] << 8) & reply[3]
         assert 0 <= value <= 1023, f"Analog read value must be between 0 and 1023, but was {value}"
@@ -264,7 +264,9 @@ async def delay(milliseconds: int) -> Union[None, str]:
 
         old_timeout = SERIAL_PORT.timeout
         if SERIAL_PORT.timeout is not None:
-            SERIAL_PORT.timeout += (milliseconds // 1000) + 1
+            SERIAL_PORT.timeout = SERIAL_PORT.timeout + (milliseconds // 1000)
+
+        print(f"TIMEOUT: {SERIAL_PORT.timeout}")
 
         # Send delay command to Arduino
         SERIAL_PORT.write([
@@ -477,16 +479,14 @@ async def upload_chat_with_arduino_firmware(fqbn: str, port: str) -> tuple:
     """
     try:
         # Run the compile and upload command
-        result = subprocess.run(
-            ['arduino-cli', 'compile', '--fqbn', fqbn, '--port', port, '--upload', '.'],
-            capture_output=True, text=True
-        )
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        result = subprocess.run(['arduino-cli', 'compile', '--fqbn', fqbn, '--port', port, '--upload', script_dir], capture_output=True, text=True)
 
         # Return the result
         if result.returncode == 0:
             return (result.returncode, result.stdout)
         else:
-            return (result.returncode, result.stderr + '\n\n---\n\n' + result.stdout)
+            return (result.returncode, '---stderr---\n' + result.stderr + '\n---stdout---\n' + result.stdout)
 
     except Exception as e:
         return (1, str(e))
@@ -511,26 +511,25 @@ async def compile_and_upload_arduino_program(program_code: str, program_name: st
             return (1, "Error: Program name cannot contain spaces.")
 
         # Create the directory for the program
-        program_dir = os.path.join(os.getcwd(), 'happy-little-programs', program_name)
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        program_dir = os.path.join(script_dir, 'code_written_by_llms', program_name)
         if not os.path.exists(program_dir):
-            os.mkdir(program_dir)
+            os.makedirs(program_dir, exist_ok=True)
 
         # Write the program code to the .ino file
-        program_file_path = os.path.join('happy-little-programs', program_dir, f"{program_name}.ino")
+        program_file_path = os.path.join('code_written_by_llms', program_dir, f"{program_name}.ino")
         with open(program_file_path, 'w') as program_file:
             program_file.write(program_code)
 
         # Run the compile and upload command
-        result = subprocess.run(
-            ['arduino-cli', 'compile', '--fqbn', fqbn, '--port', port, '--upload', program_dir],
-            capture_output=True, text=True
-        )
+        command = ['arduino-cli', 'compile', '--fqbn', fqbn, '--port', port, '--upload', program_dir]
+        result = subprocess.run(command, capture_output=True, text=True)
 
         # Return the result
         if result.returncode == 0:
             return (result.returncode, result.stdout)
         else:
-            return (result.returncode, result.stderr + '\n\n---\n\n' + result.stdout)
+            return (result.returncode, '---stderr---\n' + result.stderr + '\n---stdout---\n' + result.stdout)
 
     except Exception as e:
         return (1, str(e))

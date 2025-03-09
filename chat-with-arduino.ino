@@ -35,6 +35,24 @@ void sendError(ErrorCode err) {
     Serial.write(END_OF_MESSAGE);
 }
 
+uint8_t regularPinToAnalogPin(uint8_t pin) {
+    switch (pin) {
+        case 0: return A0;
+        case 1: return A1;
+        case 2: return A2;
+        case 3: return A3;
+        case 4: return A4;
+        case 5: return A5;
+        case 6: return A6;
+        case 7: return A7;
+        case 8: return A8;
+        case 9: return A9;
+        case 10: return A10;
+        case 11: return A11;
+    }
+    return A0;
+}
+
 void handleAck() {
     // Read the end of message byte
     uint8_t endByte = Serial.read();
@@ -137,8 +155,11 @@ void handleAnalogRead() {
         return;
     }
 
+    // Convert a regular pin number to an analog pin number
+    uint8_t analogPin = regularPinToAnalogPin(pin);
+
     // Read the analog value using analogRead function
-    int value = analogRead(pin);
+    int value = analogRead(analogPin);
 
     // Send the response back with the analog value
     Serial.write(START_OF_MESSAGE);
