@@ -26,8 +26,8 @@ but you can also use `ollama` paired with `oterm` for fully local tool-use.
    echo '{
    "mcpServers": {
        "chat-with-arduino": {
-       "command": "/opt/homebrew/bin/uv",
-       "args": [ "beyarkay/chat-with-arduino" ]
+         "command": "/opt/homebrew/bin/uvx",
+         "args": [ "beyarkay/chat-with-arduino" ]
        }
    }
    }' > ~/Library/Application\ Support/Claude/claude_desktop_config.json

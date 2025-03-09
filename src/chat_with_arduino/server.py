@@ -1,9 +1,7 @@
 from enum import Enum
 from mcp.server.fastmcp import FastMCP
-from typing import Any, Union, Tuple
-import httpx
+from typing import Union, Tuple
 import json
-import mcp
 import os
 import serial
 import serial.tools.list_ports
@@ -34,6 +32,37 @@ class TctlmIds(Enum):
     ANALOG_WRITE = 6
     DELAY = 7
     MILLIS = 8
+
+def resolve_pin(pin: int, is_analog: bool, fqbn: str) -> Union[int, str]:
+    """
+    Convert a digital/analog ambiguous pin into a pin integer. For example, pin
+    0 could be analogue or digital, and the exact pin number will depend on the
+    board, but this function will give you a pin integer.
+    """
+    if fqbn == 'arduino:avr:leonardo':
+        # Mappings taken from
+        # https://github.com/arduino/ArduinoCore-avr/blob/c8c514c9a19602542bc32c7033f48fecbbda4401/variants/leonardo/pins_arduino.h#L136
+        if is_analog:
+            if pin == 0:  return 18 # noqa: E701
+            elif pin == 1:  return 19 # noqa: E701
+            elif pin == 2:  return 20 # noqa: E701
+            elif pin == 3:  return 21 # noqa: E701
+            elif pin == 4:  return 22 # noqa: E701
+            elif pin == 5:  return 23 # noqa: E701
+            elif pin == 6:  return 24 # noqa: E701
+            elif pin == 7:  return 25 # noqa: E701
+            elif pin == 8:  return 26 # noqa: E701
+            elif pin == 9:  return 27 # noqa: E701
+            elif pin == 10: return 28 # noqa: E701
+            elif pin == 11: return 29 # noqa: E701
+            else:
+                return f"Don't know analog pin {pin} for board {fqbn}"
+        else:
+            # Digital pins are all the same
+            return pin
+    else:
+        return f"Don't know board {fqbn}"
+
 
 @my_mcp.tool()
 async def ack() -> Union[bool, str]:
@@ -128,20 +157,26 @@ async def digital_write(pin: int, state: int) -> Union[None, str]:
 
 
 @my_mcp.tool()
-async def pin_mode(pin: int, mode: str) -> Union[None, str]:
+async def pin_mode(pin: int, is_analog: bool, mode: str, fqbn: str) -> Union[None, str]:
     """Defines the mode of a pin. This can only be set once before the Arduino
     needs to be reset and should be set before using the pin.
 
     Arguments:
         pin (int): The pin number to set the mode for (0-255).
+        is_analog (bool): true if the pin is an analogue pin (eg 'A1' or 'A3'),
+        false otherwise.
         mode (str): The mode to set for the pin. Available modes are:
             'INPUT', 'OUTPUT', 'INPUT_PULLUP', 'INPUT_PULLDOWN', 'OUTPUT_OPENDRAIN'.
+        fqbn: the fully qualified board name
 
     Returns:
         None if successful, or a stringified error message if something went wrong.
     """
     global SERIAL_PORT
     try:
+        pin_or_err = resolve_pin(pin, is_analog=True, fqbn=fqbn)
+        assert type(pin_or_err) is int, "{pin_or_err}"
+        pin = int(pin_or_err)
         assert 0 <= pin <= 255, f"Pin must be in range 0-255, but was {pin}"
 
         mode_map = {
@@ -175,17 +210,21 @@ async def pin_mode(pin: int, mode: str) -> Union[None, str]:
 
 
 @my_mcp.tool()
-async def analog_read(pin: int) -> Union[int, str]:
+async def analog_read(pin: int, fqbn: str) -> Union[int, str]:
     """Reads the value of an analog pin in 10-bit resolution (0-1023).
 
     Arguments:
         pin (int): The pin number to read from (0-255).
+        fqbn (str): The fully qualified board name
 
     Returns:
         (int) The analog reading (0-1023), or a stringified error message if something went wrong.
     """
     global SERIAL_PORT
     try:
+        pin_or_err = resolve_pin(pin, is_analog=True, fqbn=fqbn)
+        assert type(pin_or_err) is int, "{pin_or_err}"
+        pin = int(pin_or_err)
         assert 0 <= pin <= 255, f"Pin must be in range 0-255, but was {pin}"
 
         if SERIAL_PORT is None:
@@ -210,18 +249,23 @@ async def analog_read(pin: int) -> Union[int, str]:
 
 
 @my_mcp.tool()
-async def analog_write(pin: int, value: int) -> Union[None, str]:
+async def analog_write(pin: int, value: int, fqbn: str) -> Union[None, str]:
     """Writes a value to a PWM-supported pin in 8-bit resolution (0-255).
 
     Arguments:
-        pin (int): The pin number to write to (0-255).
+        pin (int): The pin number to write to (0-255), this is assumed to be an
+        analogue pin (eg pin=0 implies pin 'A0' on the arduino)
         value (int): The PWM value to write (0-255).
+        fqbn (str): The fully qualified board name, used to resolve the pin
 
     Returns:
         None if successful, or a stringified error message if something went wrong.
     """
     global SERIAL_PORT
     try:
+        pin_or_err = resolve_pin(pin, is_analog=True, fqbn=fqbn)
+        assert type(pin_or_err) is int, "{pin_or_err}"
+        pin = int(pin_or_err)
         assert 0 <= pin <= 255, f"Pin must be in range 0-255, but was {pin}"
         assert 0 <= value <= 255, f"Value must be in range 0-255, but was {value}"
 
@@ -241,6 +285,7 @@ async def analog_write(pin: int, value: int) -> Union[None, str]:
 
     except Exception as e:
         return str(e)
+
 
 @my_mcp.tool()
 async def delay(milliseconds: int) -> Union[None, str]:
@@ -326,6 +371,7 @@ async def millis() -> Union[int, str]:
     except Exception as e:
         return str(e)
 
+
 @my_mcp.tool()
 async def check_arduino_cli() -> Tuple[bool, str]:
     """Checks if the arduino-cli command-line tool is available on the system.
@@ -342,6 +388,7 @@ async def check_arduino_cli() -> Tuple[bool, str]:
             return (False, f"returncode is {result.returncode}, stderr: {result.stderr}")
     except Exception as e:
         return (False, str(e))
+
 
 @my_mcp.tool()
 async def list_arduino_boards() -> Union[list, str]:

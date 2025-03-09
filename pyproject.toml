@@ -1,6 +1,6 @@
 [project]
 name = "chat-with-arduino"
-version = "0.3.2"
+version = "0.3.3"
 description = "Control your Arduino microcontroller using LLMs"
 readme = "README.md"
 requires-python = ">=3.10"
