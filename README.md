@@ -1,6 +1,6 @@
 # Chat With Arduino
 
-Use Claude or other LLMs to control your Arduino/ESP32 microcontroller!
+Use Claude or other LLMs to control your Arduino microcontroller!
 
 ## How it works
 
@@ -8,48 +8,47 @@ Use Claude or other LLMs to control your Arduino/ESP32 microcontroller!
 
 ## Features
 
-- Control your Arduino directly through Claude, no code writing or uploading
-  required. You can move motors, turn on LEDs, anything.
-- Alternatively, get Claude to write Arduino code for you, and then tell Claude
-  to upload the code to the Arduino
+- Control your Arduino directly through Claude
+- no code writing or uploading required. Claude handles it all
+- You can move motors, turn on LEDs, read sensors directly via Claude
+- Claude can also write it's own code and upload it to the microcontroller.
 
 ## Installation
 
-For this to work, we need two things: a desktop-based LLM app (we'll be using
-[Claude Desktop][1], and Chat With Arduino running on the same computer as Claude
-Desktop.
+Install the desktop-based LLM app. I'll show how to use [Claude Desktop][1],
+but you can also use `ollama` paired with `oterm` for fully local tool-use.
 
-1. Install [Claude Desktop][1]
-2. Download & run the MCP server: `uvx chat-with-arduino` ([install `uv`][2] if
-   you haven't already)
-   TODO: publish pip package
+1. Install Claude Desktop either from [the website][1] or via `brew install --cask claude`
+2. Install [`uv`][2]: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+3. Tell Claude how to use Chat With Arduino:
 
-3. You'll need to tell Claude Desktop about Chat With Arduino. Edit your
-   `claude_desktop_config.json` (usually located in `~/Library/Application Support/Claude/claude_desktop_config.json`
-   or `%APPDATA%\Claude\claude_desktop_config.json`, see detailed instructions
-   [here][3]):
+   ```
+   echo '{
+   "mcpServers": {
+       "chat-with-arduino": {
+       "command": "/opt/homebrew/bin/uv",
+       "args": [ "beyarkay/chat-with-arduino" ]
+       }
+   }
+   }' > ~/Library/Application\ Support/Claude/claude_desktop_config.json
+   ```
 
-```
-{
-  "mcpServers": {
-    "chat-with-arduino": {
-      "command": "uvx",
-      "args": [
-        "beyarkay/chat-with-arduino"
-      ]
-    }
-  }
-}
-```
+Now open `Claude Desktop`, and you should see a small hammer icon on the bottom
+right of the chat window:
 
-## TODO
+![A small hammer icon circled in red][media/hammer.png]
+
+You are now good to go! Claude is smart enough to figure out what commands need
+to be called to do what you want it to.
+
+## Usage
+
+TODO
+
+## Roadmap
 
 - Auto-install arduino-cli
-- Provide an arduino-cli interface
-- list boards by FQBN
-- Auto-upload the chat-with-arduino sketch
-- Install new cores
-- use Claude to write a script that gets uploaded
+- Support for ESP32
 
 [1]: https://claude.ai/download
 [2]: https://docs.astral.sh/uv/getting-started/installation/
